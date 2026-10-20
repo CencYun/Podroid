@@ -193,6 +193,10 @@ fun SetupScreen(
                         windowSizeClass = windowSizeClass,
                         selectedGb = selectedGb,
                         loadBalanceEnabled = loadBalanceEnabled,
+                        onLoadBalanceToggle = { enabled ->
+                            loadBalanceEnabled = enabled
+                            if (enabled) applyLoadBalance()
+                        },
                         onSelect = { selectedGb = it },
                         onNext = { scope.launch { pagerState.animateScrollToPage(1) } },
                     )
@@ -203,10 +207,6 @@ fun SetupScreen(
                         cpus = selectedCpus,
                         bandwidthMbps = selectedBandwidthMbps,
                         loadBalanceEnabled = loadBalanceEnabled,
-                        onLoadBalanceToggle = { enabled ->
-                            loadBalanceEnabled = enabled
-                            if (enabled) applyLoadBalance()
-                        },
                         onRamChange = { selectedRamMb = it },
                         onCpusChange = { selectedCpus = it },
                         onBandwidthChange = { selectedBandwidthMbps = it },
@@ -400,6 +400,7 @@ private fun StoragePage(
     windowSizeClass: WindowSizeClass,
     selectedGb: Int,
     loadBalanceEnabled: Boolean,
+    onLoadBalanceToggle: (Boolean) -> Unit,
     onSelect: (Int) -> Unit,
     onNext: () -> Unit,
 ) {
@@ -410,20 +411,26 @@ private fun StoragePage(
         description = stringResource(R.string.storage_description),
         bottomBar  = { SetupNextBar(onNext = onNext) },
     ) {
+        PodroidListRow(
+            label = stringResource(R.string.load_balance),
+            rightSlot = {
+                PodroidSwitch(checked = loadBalanceEnabled, onCheckedChange = onLoadBalanceToggle)
+            },
+        )
+        if (loadBalanceEnabled) {
+            Text(
+                text = stringResource(R.string.load_balance_description),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(bottom = PodroidTokens.Spacing.SM),
+            )
+        }
         VmStorageChips(
             currentGb = selectedGb,
             onChange = onSelect,
             enabled = !loadBalanceEnabled,
             showDivider = false,
         )
-        if (loadBalanceEnabled) {
-            Spacer(Modifier.height(PodroidTokens.Spacing.SM))
-            Text(
-                text = stringResource(R.string.load_balance_storage_hint),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
     }
 }
 
@@ -437,7 +444,6 @@ private fun VmConfigPage(
     cpus: Int,
     bandwidthMbps: Int,
     loadBalanceEnabled: Boolean,
-    onLoadBalanceToggle: (Boolean) -> Unit,
     onRamChange: (Int) -> Unit,
     onCpusChange: (Int) -> Unit,
     onBandwidthChange: (Int) -> Unit,
@@ -453,15 +459,9 @@ private fun VmConfigPage(
         description = stringResource(R.string.vm_config_description),
         bottomBar  = { SetupNavBar(onBack = onBack, onNext = onNext, nextLabel = stringResource(R.string.continue_label)) },
     ) {
-        PodroidListRow(
-            label = stringResource(R.string.load_balance),
-            rightSlot = {
-                PodroidSwitch(checked = loadBalanceEnabled, onCheckedChange = onLoadBalanceToggle)
-            },
-        )
         if (loadBalanceEnabled) {
             Text(
-                text = stringResource(R.string.load_balance_description),
+                text = stringResource(R.string.load_balance_resources_hint),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(bottom = PodroidTokens.Spacing.SM),

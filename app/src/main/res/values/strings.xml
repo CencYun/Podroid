@@ -59,7 +59,7 @@
     <string name="ssh_password_hint">ssh root@&lt;phone-ip&gt; -p 9922   (password: podroid)</string>
     <string name="load_balance">Load balance</string>
     <string name="load_balance_description">Automatically tune CPU, RAM, storage, and bandwidth for this device.</string>
-    <string name="load_balance_storage_hint">Storage size is set automatically. Turn off load balance on the next step to pick manually.</string>
+    <string name="load_balance_resources_hint">Set automatically by load balance. Turn it off on the previous step to pick these yourself.</string>
     <string name="bandwidth_limit">Bandwidth limit</string>
     <string name="bandwidth_unlimited">Unlimited</string>
 
