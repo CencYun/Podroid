@@ -95,7 +95,7 @@
           <tr>
             <td>USB passthrough</td>
             <td>QEMU backend only</td>
-            <td>Passing a physical USB device into the VM works only on the QEMU backend, which streams the open device handle to the emulator over QMP. The AVF backend has no equivalent channel, so USB passthrough is unavailable there. It is also opt-in and adds a USB controller at boot, so it must be enabled while the VM is stopped.</td>
+            <td>Passing a physical USB device into the VM works only on the QEMU backend, which streams the open device handle to the emulator over QMP. The AVF backend has no equivalent channel, so USB passthrough is unavailable there. It is also opt-in and adds a USB controller at boot, so it must be enabled while the VM is stopped. Input devices (keyboards, mice, trackpads, touchscreens, including the ones built into a dock) are never passed through, so the phone keeps its input.</td>
           </tr>
           <tr>
             <td>Storage</td>
