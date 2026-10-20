@@ -18,4 +18,5 @@ fi
 echo "Serving the Podroid docs at http://127.0.0.1:9980 (Ctrl-C to stop)"
 echo "From the phone: podroid-forward add 9980 9980 tcp, then open http://127.0.0.1:9980"
 
-exec busybox httpd -f -p 9980 -h "$DOCROOT"
+# Alpine ships httpd in busybox-extras, not in the base busybox applet set.
+exec busybox-extras httpd -f -p 9980 -h "$DOCROOT"

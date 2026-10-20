@@ -125,7 +125,7 @@
       <p>This guide also ships inside the guest, for reading with no network connection. From the terminal:</p>
       <pre><code><span class="p">$</span> podroid-forward add 9980 9980 tcp
 <span class="p">$</span> podroid-docs</code></pre>
-      <p>Open <code>http://127.0.0.1:9980</code> in the phone's browser. <code>podroid-docs</code> serves <code>/usr/share/doc/podroid</code> with busybox's <code>httpd</code> and runs in the foreground until you stop it with Ctrl-C.</p>
+      <p>Open <code>http://127.0.0.1:9980</code> in the phone's browser. <code>podroid-docs</code> serves <code>/usr/share/doc/podroid</code> with busybox's <code>httpd</code> (from <code>busybox-extras</code>) and runs in the foreground until you stop it with Ctrl-C.</p>
 
       <div class="callout warn">
         <span class="label">VM killed when you switch apps?</span>

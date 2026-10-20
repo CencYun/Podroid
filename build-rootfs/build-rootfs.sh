@@ -19,6 +19,7 @@ apk -X "https://dl-cdn.alpinelinux.org/alpine/v${ALPINE_BRANCH}/main" \
     alpine-base \
     openrc \
     busybox-openrc \
+    busybox-extras \
     bash \
     podman \
     docker docker-openrc docker-cli-compose \
