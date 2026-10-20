@@ -23,6 +23,7 @@ import com.excp.podroid.data.repository.SettingsRepository
 import com.excp.podroid.engine.avf.AvfCapabilities
 import com.excp.podroid.engine.avf.AvfDiagnostics
 import com.excp.podroid.engine.avf.AvfEngine
+import com.excp.podroid.engine.avf.AvfReflect
 import com.excp.podroid.engine.avf.AvfReport
 import com.termux.terminal.TerminalSession
 import com.termux.terminal.TerminalSessionClient
@@ -94,14 +95,17 @@ class EngineHolder @Inject constructor(
         .map { it.backendId }
         .stateIn(scope, SharingStarted.Eagerly, _currentFlow.value.backendId)
 
-    // Non-null only while the current pick is a forced-AVF selection that fell
-    // back to QEMU: the @StringRes ID of the reason (see FallbackReason /
-    // pick()). Keep the ID unresolved until the UI renders it so a locale
-    // change cannot leave this in-memory state with text from the old locale.
-    // Updated at the same two points _currentFlow is (publishFirstPick, trySwap)
-    // so it always describes the pick that produced the active engine, even on
-    // a no-op swap where the engine instance doesn't change but the selection
-    // (and therefore the reason) does.
+    // Non-null while the current pick's backend differs from what the raw
+    // selection would naively suggest: either a forced-AVF selection fell
+    // back to QEMU, or an AUTO selection avoided AVF because the OEM build
+    // has networking compiled out (FallbackReason.NETWORK_DISABLED, #43).
+    // The @StringRes ID of the reason (see FallbackReason / pick()). Keep the
+    // ID unresolved until the UI renders it so a locale change cannot leave
+    // this in-memory state with text from the old locale. Updated at the same
+    // two points _currentFlow is (publishFirstPick, trySwap) so it always
+    // describes the pick that produced the active engine, even on a no-op
+    // swap where the engine instance doesn't change but the selection (and
+    // therefore the reason) does.
     private val _backendFallback = MutableStateFlow<Int?>(null)
     val backendFallback: StateFlow<Int?> = _backendFallback.asStateFlow()
 
@@ -257,7 +261,17 @@ class EngineHolder @Inject constructor(
             probe.customVmConfigSupported &&
             capsChoice !is AvfCapabilities.ProtectedVmChoice.Unsupported
         val protectedOnly = capsChoice is AvfCapabilities.ProtectedVmChoice.Unsupported
-        val (backendId, fallbackReason) = decideBackend(sel, avfUsable, protectedOnly)
+        // Only probed when it can actually change the outcome: AUTO selection
+        // with AVF otherwise usable (decideBackend only reads this flag on the
+        // AUTO+avfUsable branch). A forced selection, or an AUTO selection
+        // that would pick QEMU anyway, skips the extra binder call. Missing
+        // method/throw already resolves to "available" inside
+        // isNetworkFeatureEnabled.
+        val networkAvailable = if (shouldProbeNetworkFeature(sel, avfUsable)) {
+            runCatching { AvfReflect.isNetworkFeatureEnabled(AvfReflect.manager(context)) }
+                .getOrDefault(true)
+        } else true
+        val (backendId, fallbackReason) = decideBackend(sel, avfUsable, protectedOnly, networkAvailable)
         // Logging unchanged from the old inline branch: protected-only keeps its
         // dedicated message, everything else logs the full prerequisite dump.
         when (fallbackReason) {
@@ -274,6 +288,11 @@ class EngineHolder @Inject constructor(
                     "reachable=${probe.serviceReachable} " +
                     "customVm=${probe.customVmConfigSupported} " +
                     "caps=${probe.capabilitiesRaw}(${probe.capabilitiesDecoded})"
+            )
+            FallbackReason.NETWORK_DISABLED -> android.util.Log.w(
+                TAG,
+                "AVF networking compiled out by this device's OEM build " +
+                    "(isFeatureEnabled(com.android.kvm.NETWORK)=false); AUTO falling back to QEMU."
             )
             null -> {}
         }
@@ -449,24 +468,37 @@ class EngineHolder @Inject constructor(
     companion object {
         private const val TAG = "EngineHolder"
 
-        /** Coarse reason a forced-AVF selection fell back to QEMU. Protected-only
+        /** Coarse reason a forced-AVF selection fell back to QEMU, or (for
+         *  NETWORK_DISABLED) an AUTO selection avoided AVF. Protected-only
          *  devices get their own value because pick() already logs them on a
          *  dedicated branch (a signed pvmfw kernel can never appear later). */
-        enum class FallbackReason { UNAVAILABLE, PROTECTED_ONLY }
+        enum class FallbackReason { UNAVAILABLE, PROTECTED_ONLY, NETWORK_DISABLED }
 
         /**
-         * Select the localized reason resource for a forced-AVF fallback. The
-         * first failed prerequisite is reported, except protected-only devices
-         * which have their dedicated explanation.
+         * Select the localized reason resource for a backend fallback. The
+         * first failed prerequisite is reported, except protected-only and
+         * network-disabled devices, which have their dedicated explanations.
          */
         @StringRes
         internal fun fallbackReasonResId(reason: FallbackReason, probe: AvfReport): Int = when {
             reason == FallbackReason.PROTECTED_ONLY -> R.string.backend_fallback_reason_protected_only
+            reason == FallbackReason.NETWORK_DISABLED -> R.string.backend_fallback_reason_network
             !probe.featureSupported -> R.string.backend_fallback_reason_feature
             !probe.managePermissionGranted || !probe.customPermissionGranted ->
                 R.string.backend_fallback_reason_permissions
             else -> R.string.backend_fallback_reason_service
         }
+
+        /**
+         * Pure gate for pick()'s reflective AvfReflect.isNetworkFeatureEnabled
+         * probe (#43 follow-up, T5b): the probe is a binder IPC, so it's only
+         * worth making when it can change decideBackend's outcome - AUTO
+         * selection with AVF otherwise usable (avfUsable). A forced selection
+         * never consults networkAvailable, and AUTO already falls to QEMU
+         * without it when AVF isn't usable, so skip the call there too.
+         */
+        fun shouldProbeNetworkFeature(selection: EngineSelection, avfUsable: Boolean): Boolean =
+            selection == EngineSelection.AUTO && avfUsable
 
         /**
          * Pure backend-selection decision, extracted from pick() so it's unit
@@ -476,11 +508,17 @@ class EngineHolder @Inject constructor(
          * human reason (which prerequisite failed) is derived separately in
          * pick() from the raw probe, since this function only sees the already-
          * collapsed avfUsable/protectedOnly booleans.
+         *
+         * [networkAvailable] is #43's OEM networking check
+         * (isFeatureEnabled(com.android.kvm.NETWORK)); it only steers the AUTO
+         * path - a forced AVF selection stays AVF even when it's false, since
+         * the user explicitly asked for that backend.
          */
         fun decideBackend(
             selection: EngineSelection,
             avfUsable: Boolean,
             protectedOnly: Boolean,
+            networkAvailable: Boolean,
         ): Pair<String, FallbackReason?> = when {
             selection == EngineSelection.QEMU -> "qemu" to null
             // Forced AVF, but AVF can't run here → transparent QEMU fallback
@@ -488,6 +526,10 @@ class EngineHolder @Inject constructor(
             selection == EngineSelection.AVF && !avfUsable ->
                 "qemu" to (if (protectedOnly) FallbackReason.PROTECTED_ONLY else FallbackReason.UNAVAILABLE)
             selection == EngineSelection.AVF -> "avf" to null
+            // AUTO would otherwise pick AVF, but the OEM build compiled out
+            // networking - keep the VM online on QEMU instead of booting a
+            // NIC-less AVF guest.
+            avfUsable && !networkAvailable -> "qemu" to FallbackReason.NETWORK_DISABLED
             avfUsable -> "avf" to null
             else -> "qemu" to null
         }

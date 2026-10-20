@@ -87,6 +87,34 @@ object AvfReflect {
     fun getCapabilities(mgr: Any): Int =
         runCatching { invokeDecl(mgr, "getCapabilities") as? Int ?: 0 }.getOrDefault(0)
 
+    private const val FEATURE_NETWORK = "com.android.kvm.NETWORK"
+
+    /** Logged at most once per process so a missing method doesn't spam logcat
+     *  on every AUTO-selection pick(). */
+    @Volatile private var networkFeatureCheckLogged = false
+
+    /**
+     * VirtualMachineManager.isFeatureEnabled("com.android.kvm.NETWORK"): false
+     * on OEM virtualization APEXes built with networking compiled out (#43:
+     * release_avf_enable_network off), which otherwise boot an AVF VM with no
+     * NIC. Missing method or any throw is treated as "available" (no behaviour
+     * change from before this check existed) and logged once.
+     */
+    fun isNetworkFeatureEnabled(mgr: Any): Boolean =
+        runCatching {
+            invokeDecl(mgr, "isFeatureEnabled", String::class.java to FEATURE_NETWORK) as? Boolean ?: true
+        }.getOrElse {
+            if (!networkFeatureCheckLogged) {
+                networkFeatureCheckLogged = true
+                android.util.Log.i(
+                    "AvfReflect",
+                    "isFeatureEnabled($FEATURE_NETWORK) unavailable on this AVF revision; " +
+                        "treating networking as available: ${it.message}",
+                )
+            }
+            true
+        }
+
     /**
      * Applies the capability-driven protected-VM choice to a VM config builder.
      * Returns the choice so the caller can fall back to QEMU on Unsupported.

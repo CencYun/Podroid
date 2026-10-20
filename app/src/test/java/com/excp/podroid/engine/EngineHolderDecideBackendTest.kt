@@ -8,9 +8,12 @@ import com.excp.podroid.R
 import com.excp.podroid.engine.EngineHolder.Companion.FallbackReason
 import com.excp.podroid.engine.EngineHolder.Companion.decideBackend
 import com.excp.podroid.engine.EngineHolder.Companion.fallbackReasonResId
+import com.excp.podroid.engine.EngineHolder.Companion.shouldProbeNetworkFeature
 import com.excp.podroid.engine.avf.AvfReport
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -27,6 +30,7 @@ class EngineHolderDecideBackendTest {
             selection = EngineSelection.AUTO,
             avfUsable = true,
             protectedOnly = false,
+            networkAvailable = true,
         )
         assertEquals("avf", backendId)
         assertNull(reason)
@@ -40,6 +44,7 @@ class EngineHolderDecideBackendTest {
             selection = EngineSelection.AUTO,
             avfUsable = false,
             protectedOnly = false,
+            networkAvailable = true,
         )
         assertEquals("qemu", backendId)
         assertNull(reason)
@@ -51,6 +56,7 @@ class EngineHolderDecideBackendTest {
             selection = EngineSelection.AVF,
             avfUsable = false,
             protectedOnly = false,
+            networkAvailable = true,
         )
         assertEquals("qemu", backendId)
         assertEquals(FallbackReason.UNAVAILABLE, reason)
@@ -62,6 +68,7 @@ class EngineHolderDecideBackendTest {
             selection = EngineSelection.AVF,
             avfUsable = true,
             protectedOnly = false,
+            networkAvailable = true,
         )
         assertEquals("avf", backendId)
         assertNull(reason)
@@ -73,6 +80,7 @@ class EngineHolderDecideBackendTest {
             selection = EngineSelection.QEMU,
             avfUsable = true,
             protectedOnly = true,
+            networkAvailable = true,
         )
         assertEquals("qemu", backendId)
         assertNull(reason)
@@ -84,9 +92,61 @@ class EngineHolderDecideBackendTest {
             selection = EngineSelection.AVF,
             avfUsable = false,
             protectedOnly = true,
+            networkAvailable = true,
         )
         assertEquals("qemu", backendId)
         assertEquals(FallbackReason.PROTECTED_ONLY, reason)
+    }
+
+    @Test
+    fun `auto selection with network compiled out falls back to qemu with the network reason`() {
+        // #43: OEM build has isFeatureEnabled(com.android.kvm.NETWORK) == false.
+        val (backendId, reason) = decideBackend(
+            selection = EngineSelection.AUTO,
+            avfUsable = true,
+            protectedOnly = false,
+            networkAvailable = false,
+        )
+        assertEquals("qemu", backendId)
+        assertEquals(FallbackReason.NETWORK_DISABLED, reason)
+    }
+
+    @Test
+    fun `auto selection with unknown network support picks avf`() {
+        // Missing method or a throw resolves to networkAvailable = true before
+        // reaching decideBackend, so an "unknown" device behaves like before #43.
+        val (backendId, reason) = decideBackend(
+            selection = EngineSelection.AUTO,
+            avfUsable = true,
+            protectedOnly = false,
+            networkAvailable = true,
+        )
+        assertEquals("avf", backendId)
+        assertNull(reason)
+    }
+
+    @Test
+    fun `forced avf with network compiled out stays avf`() {
+        // The user explicitly asked for AVF; #43's check only steers AUTO.
+        val (backendId, reason) = decideBackend(
+            selection = EngineSelection.AVF,
+            avfUsable = true,
+            protectedOnly = false,
+            networkAvailable = false,
+        )
+        assertEquals("avf", backendId)
+        assertNull(reason)
+    }
+
+    @Test
+    fun `network-disabled fallback maps to its dedicated resource`() {
+        assertEquals(
+            R.string.backend_fallback_reason_network,
+            fallbackReasonResId(
+                FallbackReason.NETWORK_DISABLED,
+                report(),
+            ),
+        )
     }
 
     @Test
@@ -131,6 +191,28 @@ class EngineHolderDecideBackendTest {
                 report(serviceReachable = false),
             ),
         )
+    }
+
+    @Test
+    fun `network feature probe runs only for auto with avf otherwise usable`() {
+        // #43 follow-up (T5b): the probe is a binder IPC, so it must be
+        // skipped whenever it cannot change decideBackend's outcome.
+        assertTrue(shouldProbeNetworkFeature(EngineSelection.AUTO, avfUsable = true))
+    }
+
+    @Test
+    fun `network feature probe skipped for auto when avf is not usable anyway`() {
+        assertFalse(shouldProbeNetworkFeature(EngineSelection.AUTO, avfUsable = false))
+    }
+
+    @Test
+    fun `network feature probe skipped for forced avf`() {
+        assertFalse(shouldProbeNetworkFeature(EngineSelection.AVF, avfUsable = true))
+    }
+
+    @Test
+    fun `network feature probe skipped for forced qemu`() {
+        assertFalse(shouldProbeNetworkFeature(EngineSelection.QEMU, avfUsable = true))
     }
 
     private fun report(

@@ -328,9 +328,11 @@ class SettingsViewModel @Inject constructor(
      */
     val activeBackendIdFlow: StateFlow<String> = engine.backendIdFlow
 
-    /** Non-null when the current pick forced AVF but fell back to QEMU; the
-     *  @StringRes ID for the Settings backend caption. The screen resolves it
-     *  in the current locale. See #66. */
+    /** Non-null when the current pick's backend differs from what the raw
+     *  selection would naively suggest: a forced AVF selection fell back to
+     *  QEMU, or an AUTO selection avoided AVF because the OEM build has
+     *  networking compiled out (#43). The @StringRes ID for the Settings
+     *  backend caption. The screen resolves it in the current locale. See #66. */
     val backendFallback: StateFlow<Int?> = engine.backendFallback
 
     private val _exportError = MutableStateFlow<String?>(null)

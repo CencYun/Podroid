@@ -212,6 +212,8 @@
     <string name="backend_fallback_reason_permissions">所需权限尚未授予</string>
     <string name="backend_fallback_reason_service">系统服务不可达</string>
     <string name="backend_fallback_reason_protected_only">此设备仅支持受保护虚拟机</string>
+    <!-- #43: AUTO avoided AVF because the OEM build compiled out networking (isFeatureEnabled(com.android.kvm.NETWORK) == false). Standalone sentence, unlike the fragments above. -->
+    <string name="backend_fallback_reason_network">此设备的虚拟化服务关闭了网络功能，因此 Podroid 使用 QEMU 以保持虚拟机联网。</string>
 
     <!-- Permissions -->
     <string name="permissions">权限</string>

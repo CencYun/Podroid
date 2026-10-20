@@ -356,6 +356,20 @@ fun SettingsScreen(
                                 modifier = Modifier.padding(horizontal = PodroidTokens.Spacing.MD),
                             )
                         }
+                    } else if (ui.engineSelection == EngineSelection.AUTO) {
+                        // Not an error: Auto did its job and kept the VM on QEMU
+                        // because this device's AVF build has networking off
+                        // (#43). Plain secondary text, not the AVF-forced error
+                        // styling above.
+                        backendFallback?.takeIf { it == R.string.backend_fallback_reason_network }?.let { reasonResId ->
+                            Spacer(Modifier.height(PodroidTokens.Spacing.XS))
+                            Text(
+                                text = stringResource(reasonResId),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(horizontal = PodroidTokens.Spacing.MD),
+                            )
+                        }
                     }
                     Spacer(Modifier.height(PodroidTokens.Spacing.MD))
                     AdvancedFieldsBlock(

@@ -212,6 +212,8 @@
     <string name="backend_fallback_reason_permissions">required permissions have not been granted</string>
     <string name="backend_fallback_reason_service">the system service is unreachable</string>
     <string name="backend_fallback_reason_protected_only">this device only supports protected virtual machines</string>
+    <!-- #43: AUTO avoided AVF because the OEM build compiled out networking (isFeatureEnabled(com.android.kvm.NETWORK) == false). Standalone sentence, unlike the fragments above. -->
+    <string name="backend_fallback_reason_network">This device\'s virtualization service has networking turned off, so Podroid uses QEMU to keep the VM online.</string>
 
     <!-- Permissions -->
     <string name="permissions">Permissions</string>
