@@ -1070,7 +1070,11 @@ class AvfEngine @Inject constructor(
         // AvfCpuPolicy.
         val nrCpusFlag =
             if (effectiveCpus > 1 && !useExplicitCpuCount) " nr_cpus=$effectiveCpus" else ""
-        val resolvedCmdline = ("console=hvc0 $earlycon root=/dev/ram0 mitigations=off " +
+        // arm64.nompam: some hypervisors (Pixel 8 Pro on Android 17, #108)
+        // advertise MPAM in ID_AA64PFR0 but trap MPAMIDR_EL1, so the guest
+        // takes an undefined-instruction oops in init_cpu_features() at 0.000s.
+        // The guest never uses MPAM resource control, so hiding it costs nothing.
+        val resolvedCmdline = ("console=hvc0 $earlycon root=/dev/ram0 mitigations=off arm64.nompam " +
             "elevator=mq-deadline podroid.tty=hvc0 podroid.backend=avf podroid.epoch=$epoch " +
             "podroid.x11.dpi=${config.x11Dpi}$verboseFlags$nrCpusFlag " +
             (if (config.bandwidthMbps > 0) "podroid.bandwidth=${config.bandwidthMbps} " else "") +

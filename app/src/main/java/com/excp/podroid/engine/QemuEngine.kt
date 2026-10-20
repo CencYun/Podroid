@@ -536,7 +536,8 @@ class QemuEngine @Inject constructor(
             args += "-kernel"; args += kernelPath.absolutePath
             val cmdline = buildString {
                 // mitigations=off: speculative-exec attacks don't cross the TCG ISA boundary; 5–15% gain.
-                append("console=ttyAMA0 mitigations=off")
+                // arm64.nompam: same as AvfEngine (#108); the guest never uses MPAM.
+                append("console=ttyAMA0 mitigations=off arm64.nompam")
                 if (userKernelExtras.isNotEmpty()) append(" ").append(userKernelExtras)
                 append(" androidip=").append(config.androidIp)
                 if (config.sshEnabled) append(" ssh=1")
