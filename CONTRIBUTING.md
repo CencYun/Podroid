@@ -14,13 +14,14 @@ cd Podroid
 You will need:
 
 - **Docker 20.10+** for the kernel, initramfs, rootfs, and QEMU build pipelines
+- **JDK 17 or newer** to run Gradle (`sourceCompatibility`/`targetCompatibility` in `app/build.gradle.kts` are `VERSION_17`)
 - **Android NDK r27c** for the bridge and Termux native libraries
 - **Android SDK** with platform 36 + build-tools
 - An **arm64 Android device** running **Android 8.0+ (API 26)** for testing
 
 ## Build pipeline
 
-`build-all.sh` orchestrates every component:
+`build-all.sh` orchestrates every component, in the order a from-scratch build needs them:
 
 ```sh
 ./build-all.sh kernel       # custom Linux kernel (~5-10 min, Docker-cached)
@@ -28,10 +29,21 @@ You will need:
 ./build-all.sh rootfs       # Alpine squashfs (~30 s, Docker-cached)
 ./build-all.sh qemu         # QEMU + podroid-bridge (~30 min first run)
 ./build-all.sh apk          # Android APK via Gradle
-./build-all.sh all          # everything
+./build-all.sh all          # everything, in the order above
 ./build-all.sh deploy       # APK + install in place (adb install -r)
 ./build-all.sh test         # deploys APK, polls console.log for "Ready!"
 ```
+
+`kernel` and `initramfs` both produce the same kernel image, so you only need one of them if you are not also touching the initramfs; `apk` needs whatever `rootfs`/`qemu`/`initramfs` last produced to already be on disk, since it just runs Gradle.
+
+| Step | Produces | Lands in |
+|---|---|---|
+| `kernel` | `vmlinuz-virt` | `app/src/main/assets/vmlinuz-virt` |
+| `initramfs` | `vmlinuz-virt` + `initrd.img` | `app/src/main/assets/` |
+| `rootfs` | `alpine-rootfs.squashfs` | `app/src/main/assets/alpine-rootfs.squashfs` |
+| `qemu` | `libqemu-system-aarch64.so`, `libslirp.so`, `libpodroid-bridge.so`, `libpodroid-launcher.so` | `app/src/main/jniLibs/arm64-v8a/` |
+| `qemu` | `efi-virtio.rom`, keymaps | `app/src/main/assets/qemu/` |
+| `apk` | `app-debug.apk` | `app/build/outputs/apk/debug/` |
 
 Component versions are pinned in one place each, so read the pin rather than trusting a number written in prose:
 
@@ -41,11 +53,19 @@ Component versions are pinned in one place each, so read the pin rather than tru
 | QEMU | `podroidQemuVersion` in `gradle.properties` |
 | Alpine | `ARG ALPINE_RELEASE` in `build-rootfs/Dockerfile.rootfs` |
 
+**`kernel` and `initramfs` pass `docker build --network=host`; `qemu` and `rootfs` do not.** Both of those stages `apt-get`/`apk`/`curl` packages from inside the container, and on some hosts the default bridge network's DNS does not resolve there, which shows up as `apt-get`/`apk` saying a package "has no installation candidate", or a `curl`/`wget` step failing outright. If that happens, rerun the failing stage's `docker build` by hand with `--network=host` added (see `build_qemu`/`build_rootfs` in `build-all.sh` for the exact command to replicate) rather than assuming the package is gone upstream.
+
 Or, for the common case where you only changed Kotlin / UI code:
 
 ```sh
 ./gradlew installDebug
 ```
+
+## Customising the guest
+
+- **Add a package to the base image:** add it to the `apk add` list in `build-rootfs/build-rootfs.sh` (e.g. `mc`), then `./build-all.sh rootfs`. New packages land on the next VM boot with no reset, since the squashfs is a plain-overlay lower (see `CLAUDE.md`'s "VM migration / upgrades").
+- **OpenRC services:** live under `build-rootfs/files/etc/init.d/`, wired into the `default`/`boot` runlevels by direct symlinks at the end of `build-rootfs.sh` (the build host is x86_64 and can't `chroot` into the aarch64 rootfs to run `rc-update`).
+- **Swapping Alpine for another distro is not supported.** `init-podroid` (overlay + `switch_root`), the OpenRC runlevel wiring, and the musl-static cross-compiled helpers (`podroid-hostd`, `podroid-vsock-agent`, `podroid-overlay-normalize`) all assume an Alpine root. Moving to another distro would mean replacing the init system integration, the `apk`-based package step in `build-rootfs.sh`, and rebuilding those helpers against that distro's libc.
 
 ## Reporting bugs
 
