@@ -11,6 +11,7 @@
  *   podroid-open      CLI: open a URL on Android (ACTION_VIEW).
  *   podroid-power     CLI: stop/restart the VM, or query status.
  *   podroid-headless  CLI (alias podroid-server): toggle server mode.
+ *   podroid-phone-ip  CLI: print the phone's reachable IPv4 address(es).
  *
  * Daemon transport (one request line -> one response line, serialized):
  *   AVF  (podroid.backend=avf in /proc/cmdline): listen AF_VSOCK :9101, accept
@@ -345,6 +346,54 @@ static int cli_headless(int argc, char **argv) {
     return cli_report(resp, 0);
 }
 
+/* Default output is the primary address alone (one bare line) so
+ * `$(podroid-phone-ip)` works in scripts; -a/--all prints every "iface
+ * address" line the host reports, primary first. */
+static int cli_phone_ip(int argc, char **argv) {
+    int all = 0;
+    if (argc >= 2) {
+        if (strcmp(argv[1], "-a") == 0 || strcmp(argv[1], "--all") == 0) {
+            all = 1;
+        } else if (strcmp(argv[1], "-h") == 0 || strcmp(argv[1], "--help") == 0) {
+            printf("usage: podroid-phone-ip [-a|--all]\n");
+            return 0;
+        } else {
+            fprintf(stderr, "usage: podroid-phone-ip [-a|--all]\n");
+            return 2;
+        }
+    }
+    char resp[8192];
+    int rc = cli_roundtrip("PHONE-IP", resp, sizeof(resp));
+    if (rc < 0) return cli_roundtrip_failed(rc);
+    if (strncmp(resp, "ERR ", 4) == 0) {
+        char *msg = b64decode(resp + 4);
+        fprintf(stderr, "podroid: %s\n", msg ? msg : "error");
+        free(msg);
+        return 1;
+    }
+    if (strncmp(resp, "OK ", 3) != 0) {
+        fprintf(stderr, "podroid: unexpected response: %s\n", resp);
+        return 1;
+    }
+    char *table = b64decode(resp + 3);
+    if (!table || !*table) {
+        fprintf(stderr, "podroid: no network\n");
+        free(table);
+        return 1;
+    }
+    if (all) {
+        printf("%s\n", table);
+    } else {
+        /* First line is "iface address"; print the address field only. */
+        char *nl = strchr(table, '\n');
+        if (nl) *nl = '\0';
+        char *sp = strchr(table, ' ');
+        printf("%s\n", sp ? sp + 1 : table);
+    }
+    free(table);
+    return 0;
+}
+
 /* On QEMU the host channel is /dev/hvc2, a virtio-console TTY that defaults to
  * cooked mode with ECHO on. Echo is fatal here: every response the guest reads
  * gets echoed straight back out to Android, which then parses its own "OK ..."
@@ -668,5 +717,6 @@ int main(int argc, char **argv) {
     if (strcmp(base, "podroid-open") == 0) return cli_open(argc, argv);
     if (strcmp(base, "podroid-power") == 0) return cli_power(argc, argv);
     if (strcmp(base, "podroid-headless") == 0 || strcmp(base, "podroid-server") == 0) return cli_headless(argc, argv);
+    if (strcmp(base, "podroid-phone-ip") == 0) return cli_phone_ip(argc, argv);
     return daemon_main();
 }

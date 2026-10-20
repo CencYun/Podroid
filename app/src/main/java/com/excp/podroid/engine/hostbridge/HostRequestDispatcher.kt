@@ -11,6 +11,7 @@ package com.excp.podroid.engine.hostbridge
 import com.excp.podroid.data.repository.AddRuleResult
 import com.excp.podroid.data.repository.MAX_PORT_FORWARD_RULES
 import com.excp.podroid.data.repository.PortForwardRule
+import com.excp.podroid.util.NetworkUtils
 import kotlinx.coroutines.CancellationException
 
 class HostRequestDispatcher(
@@ -23,6 +24,7 @@ class HostRequestDispatcher(
     private val power: suspend (String) -> String,
     private val setHeadless: suspend (String) -> String,
     private val setContainerCount: suspend (Int) -> Unit,
+    private val phoneAddresses: suspend () -> List<NetworkUtils.LocalAddress>,
 ) {
     private val validProtocols = setOf("tcp", "udp")
 
@@ -48,6 +50,7 @@ class HostRequestDispatcher(
                 "POWER" -> handlePower(parts)
                 "HEADLESS" -> handleHeadless(parts)
                 "STATS" -> handleStats(parts)
+                "PHONE-IP" -> handlePhoneIp(parts)
                 "PING" -> "PONG"
                 else -> HostProtocol.err("bad request")
             }
@@ -151,5 +154,14 @@ class HostRequestDispatcher(
         if (count !in 0..100000) return HostProtocol.err("bad request")
         setContainerCount(count)
         return HostProtocol.ok()
+    }
+
+    // PHONE-IP (no arguments)
+    private suspend fun handlePhoneIp(p: List<String>): String {
+        if (p.size != 1) return HostProtocol.err("bad request")
+        val addresses = phoneAddresses()
+        if (addresses.isEmpty()) return HostProtocol.err("no network")
+        val table = addresses.joinToString("\n") { "${it.iface} ${it.address}" }
+        return HostProtocol.ok(HostProtocol.enc(table))
     }
 }

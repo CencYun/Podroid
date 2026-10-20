@@ -2,6 +2,7 @@ package com.excp.podroid.engine.hostbridge
 
 import com.excp.podroid.data.repository.AddRuleResult
 import com.excp.podroid.data.repository.PortForwardRule
+import com.excp.podroid.util.NetworkUtils
 import java.io.IOException
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -246,6 +247,7 @@ class HostRequestServerTest {
         power = { HostProtocol.ok() },
         setHeadless = { HostProtocol.ok() },
         setContainerCount = {},
+        phoneAddresses = { emptyList<NetworkUtils.LocalAddress>() },
     )
 
     private class BlockingTransport(private val resultAfterClose: String? = null) : HostTransport {

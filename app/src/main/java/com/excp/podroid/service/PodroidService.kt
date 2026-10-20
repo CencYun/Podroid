@@ -338,6 +338,7 @@ class PodroidService : Service() {
             power = { handlePowerRequest(it) },
             setHeadless = { handleHeadlessRequest(it) },
             setContainerCount = { settingsRepository.setLastContainerCount(it) },
+            phoneAddresses = { withContext(Dispatchers.IO) { NetworkUtils.allLocalIpv4(this@PodroidService) } },
         )
         return com.excp.podroid.engine.hostbridge.HostRequestServer(
             openTransport = { engine.openHostTransport() },

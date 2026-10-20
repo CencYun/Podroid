@@ -5,6 +5,7 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 import com.excp.podroid.data.repository.AddRuleResult
 import com.excp.podroid.data.repository.PortForwardRule
+import com.excp.podroid.util.NetworkUtils
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertTrue
 
@@ -37,6 +38,7 @@ private fun dispatcher(
     power: suspend (String) -> String = { HostProtocol.ok() },
     setHeadless: suspend (String) -> String = { HostProtocol.ok() },
     setContainerCount: suspend (Int) -> Unit = {},
+    phoneAddresses: suspend () -> List<NetworkUtils.LocalAddress> = { emptyList() },
     addResult: AddRuleResult = AddRuleResult.ADDED,
 ) = HostRequestDispatcher(
     notifications = poster,
@@ -54,6 +56,7 @@ private fun dispatcher(
     power = power,
     setHeadless = setHeadless,
     setContainerCount = setContainerCount,
+    phoneAddresses = phoneAddresses,
 )
 
 class HostRequestDispatcherTest {
@@ -241,5 +244,27 @@ class HostRequestDispatcherTest {
         val d = dispatcher(setContainerCount = { seen = it })
         assertTrue(d.handle("STATS count=3").startsWith("ERR "))
         assertEquals(null, seen)
+    }
+
+    @Test fun phoneIpReturnsPrimaryFirstFormattedTable() = runBlocking {
+        val addresses = listOf(
+            NetworkUtils.LocalAddress("wlan0", "192.168.1.5"),
+            NetworkUtils.LocalAddress("rndis0", "192.168.42.1"),
+        )
+        val resp = dispatcher(phoneAddresses = { addresses }).handle("PHONE-IP")
+        assertTrue(resp.startsWith("OK "))
+        val table = HostProtocol.dec(resp.removePrefix("OK "))
+        assertEquals("wlan0 192.168.1.5\nrndis0 192.168.42.1", table)
+    }
+
+    @Test fun phoneIpEmptyIsError() = runBlocking {
+        val resp = dispatcher(phoneAddresses = { emptyList() }).handle("PHONE-IP")
+        assertTrue(resp.startsWith("ERR "))
+        assertEquals("no network", HostProtocol.dec(resp.removePrefix("ERR ")))
+    }
+
+    @Test fun phoneIpRejectsExtraTokens() = runBlocking {
+        val d = dispatcher(phoneAddresses = { listOf(NetworkUtils.LocalAddress("wlan0", "192.168.1.5")) })
+        assertTrue(d.handle("PHONE-IP extra").startsWith("ERR "))
     }
 }

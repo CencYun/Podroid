@@ -176,9 +176,21 @@ podroid-server off
 podroid-server status</code></pre>
       <p>Server mode keeps the VM running behind a pure-black, minimum-brightness full-screen overlay - for leaving the phone on a headless workload with minimal OLED draw and burn-in. The screen stays on (so the system does not kill the VM) but shows nothing. Exit by <strong>holding the screen for three seconds</strong>, or run <code>podroid-server off</code>. The same toggle lives in the terminal's top bar. <code>podroid-headless</code> is an alias for <code>podroid-server</code>.</p>
 
+      <h3><code>podroid-phone-ip</code> - print the phone's IP from inside the guest</h3>
+      <pre><code><span class="c"># the primary address only, one bare line - safe to use in scripts</span>
+podroid-phone-ip
+<span class="c"># every reachable address, one "iface address" line each, primary first</span>
+podroid-phone-ip -a</code></pre>
+      <p>Saves a trip to the Status screen when a script or shell session needs the phone's own LAN address, for example to fill in <code>pasv_address</code> for the FTP server below or to print a URL a teammate can open. <code>$(podroid-phone-ip)</code> expands to just the address. Fails with a non-zero exit code and a message on stderr if the host bridge is unreachable or the phone has no usable address.</p>
+
+      <div class="callout note">
+        <span class="label">Using it from a container</span>
+        <p>Bind-mount the host bridge socket and the binary into the container: <code>-v /run/podroid-host.sock:/run/podroid-host.sock -v /usr/local/bin/podroid-hostd:/usr/local/bin/podroid-phone-ip:ro</code>. The binary is built statically, so it has no libc dependency at runtime and works from any container image, Alpine-based or not.</p>
+      </div>
+
       <div class="callout note">
         <span class="label">How it works</span>
-        <p>A small guest daemon (<code>podroid-hostd</code>) relays each request to the Android side over the same control transport the app already uses - a virtio-console port on QEMU, vsock on AVF - which then performs the requested action: post a notification, write a port-forward rule, open a URL, or control the VM. Any process that can reach the guest socket can use these, so they work from a container too if you bind-mount <code>/run/podroid-host.sock</code> into it.</p>
+        <p>A small guest daemon (<code>podroid-hostd</code>) relays each request to the Android side over the same control transport the app already uses - a virtio-console port on QEMU, vsock on AVF - which then performs the requested action: post a notification, write a port-forward rule, open a URL, control the VM, or read back the phone's own address. Any process that can reach the guest socket can use these, so they work from a container too if you bind-mount <code>/run/podroid-host.sock</code> into it.</p>
       </div>
 
       <h2>LAN reachability</h2>

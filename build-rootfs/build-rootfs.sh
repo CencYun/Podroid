@@ -130,6 +130,7 @@ ln -sf podroid-hostd "$ROOTFS/usr/local/bin/podroid-open"
 ln -sf podroid-hostd "$ROOTFS/usr/local/bin/podroid-power"
 ln -sf podroid-hostd "$ROOTFS/usr/local/bin/podroid-headless"
 ln -sf podroid-hostd "$ROOTFS/usr/local/bin/podroid-server"
+ln -sf podroid-hostd "$ROOTFS/usr/local/bin/podroid-phone-ip"
 chmod +x "$ROOTFS/usr/local/bin/podroid-"*
 # vsock agent's initial forward table (read at podroid-vsock startup).
 mkdir -p "$ROOTFS/etc/podroid"
