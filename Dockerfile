@@ -314,6 +314,14 @@ RUN sed -i '1i#include "/opt/qemu_jmp.h"' ${QEMU_DIR}/util/coroutine-ucontext.c 
 RUN sed -i 's@^    rc = libusb_init(&ctx);@#if defined(__ANDROID__)\n    libusb_set_option(NULL, LIBUSB_OPTION_NO_DEVICE_DISCOVERY); /* unprivileged Android: wrap passed fd only, skip enumeration */\n#endif\n    rc = libusb_init(\&ctx);@' ${QEMU_DIR}/hw/usb/host-libusb.c \
     && grep -q LIBUSB_OPTION_NO_DEVICE_DISCOVERY ${QEMU_DIR}/hw/usb/host-libusb.c
 
+# USB speed inference on Android: hosts whose kernel predates USBDEVFS_GET_SPEED (< 4.14, e.g.
+# the Poco F1's 4.9) leave libusb_get_device_speed() at LIBUSB_SPEED_UNKNOWN and the ioctl retry
+# above also fails on those kernels, so speed_map[] indexes at 0, which silently resolves to
+# USB_SPEED_LOW and the guest rejects "Invalid ep0 maxpacket: 64". Infer the speed from the
+# device descriptor (already read into s->ddesc earlier in usb_host_open()) instead.
+RUN sed -i 's@^    udev->speed = speed_map\[libusb_speed\];@#if defined(__ANDROID__)\n    if (libusb_speed == LIBUSB_SPEED_UNKNOWN) {\n        /* Host kernels < 4.14 cannot report speed; infer it from the descriptor */\n        libusb_speed = s->ddesc.bcdUSB >= 0x0300 ? LIBUSB_SPEED_SUPER\n                     : s->ddesc.bMaxPacketSize0 == 64 ? LIBUSB_SPEED_HIGH\n                     : LIBUSB_SPEED_FULL;\n    }\n#endif\n    udev->speed = speed_map[libusb_speed];@' ${QEMU_DIR}/hw/usb/host-libusb.c \
+    && grep -q 'Host kernels < 4.14 cannot report speed' ${QEMU_DIR}/hw/usb/host-libusb.c
+
 RUN cd ${QEMU_DIR} && ./configure --cc="${CC}" --cross-prefix="${LLVM}/bin/llvm-" --extra-cflags="-fPIC -DANDROID -include /opt/shm_shim.h -I${PREFIX}/include -I${PREFIX}/include/glib-2.0 -I${PREFIX}/lib/glib-2.0/include" --extra-ldflags="-L${PREFIX}/lib -Wl,-z,max-page-size=16384 ${PREFIX}/lib/libucontext.a ${PREFIX}/lib/libshm.a ${PREFIX}/lib/libqemujmp.a" --prefix=/opt/qemu-out --target-list=aarch64-softmmu --enable-tcg --enable-slirp --enable-virtfs --enable-libusb --enable-pie --disable-docs --disable-gtk --disable-sdl --disable-vnc --disable-vhost-user --disable-plugins --with-coroutine=ucontext && make -j$(nproc) install
 
 # Bridge
