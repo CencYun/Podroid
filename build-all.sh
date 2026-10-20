@@ -123,6 +123,13 @@ build_rootfs() {
     log "Building Alpine rootfs squashfs..."
     local sysver
     sysver=$(grep -E '^[[:space:]]*versionCode[[:space:]]*=' "${SCRIPT_DIR}/app/build.gradle.kts" | grep -oE '[0-9]+' | head -1)
+
+    # docs/guide/ lives outside build-rootfs/, the Docker build context below,
+    # so stage a fresh copy inside it for Dockerfile.rootfs to COPY in.
+    rm -rf "${SCRIPT_DIR}/build-rootfs/docs-guide"
+    mkdir -p "${SCRIPT_DIR}/build-rootfs/docs-guide"
+    cp "${SCRIPT_DIR}/docs/guide/"*.html "${SCRIPT_DIR}/docs/guide/style.css" "${SCRIPT_DIR}/build-rootfs/docs-guide/"
+
     docker build -f "${SCRIPT_DIR}/build-rootfs/Dockerfile.rootfs" \
         -t podroid-rootfs:latest \
         --build-arg "SYSTEM_VERSION=${sysver:-0}" \

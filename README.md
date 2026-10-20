@@ -55,6 +55,10 @@ podroid-forward clean                 # remove every rule you added, in one go
 
 # SSH in from your laptop (enable SSH in the setup wizard or Settings)
 ssh root@<phone-ip> -p 9922        # password: podroid
+
+# read this documentation with no network connection
+podroid-forward add 9980 9980 tcp     # forward the docs port to the phone
+podroid-docs                          # serves docs/guide at http://127.0.0.1:9980
 ```
 
 Setup, the two backends, networking, the X11 viewer and troubleshooting all live in the **[documentation](https://extv.github.io/Podroid/guide/)**.

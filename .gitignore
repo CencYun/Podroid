@@ -32,6 +32,10 @@ local.properties
 *.tar.gz
 config.log
 
+# docs/guide staged into the rootfs Docker build context by build_rootfs()
+# in build-all.sh (docs/ lives outside build-rootfs/, which is the context)
+/build-rootfs/docs-guide/
+
 # Generated assets (built by docker-build-initramfs.sh)
 app/src/main/assets/vmlinuz-virt
 app/src/main/assets/initrd.img

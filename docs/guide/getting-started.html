@@ -121,6 +121,12 @@
 <span class="c"># password: podroid</span></code></pre>
       <p>Port 9922 is the default; see the <a href="networking.html">Networking &amp; ports</a> page for how SLIRP forwarding works and how to add more port rules.</p>
 
+      <h2>Offline docs</h2>
+      <p>This guide also ships inside the guest, for reading with no network connection. From the terminal:</p>
+      <pre><code><span class="p">$</span> podroid-forward add 9980 9980 tcp
+<span class="p">$</span> podroid-docs</code></pre>
+      <p>Open <code>http://127.0.0.1:9980</code> in the phone's browser. <code>podroid-docs</code> serves <code>/usr/share/doc/podroid</code> with busybox's <code>httpd</code> and runs in the foreground until you stop it with Ctrl-C.</p>
+
       <div class="callout warn">
         <span class="label">VM killed when you switch apps?</span>
         <p>If you see "QEMU crashed (SIGKILL)" after backgrounding the app, Android's phantom-process killer is terminating the QEMU process. This is an OS-level restriction, not a bug. See <a href="limitations.html">Limitations &amp; troubleshooting</a> for the workaround.</p>

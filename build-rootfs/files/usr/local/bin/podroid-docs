@@ -1,0 +1,21 @@
+#!/bin/sh
+# Serves the offline copy of the Podroid documentation (docs/guide/, mirrored
+# into the squashfs at build time by build-rootfs.sh) over plain HTTP, so it
+# can be read from a browser with no network connection.
+#
+# Runs in the foreground until interrupted (Ctrl-C); forward the port to read
+# it from the phone's own browser:
+#   podroid-forward add 9980 9980 tcp
+# then open http://127.0.0.1:9980
+
+DOCROOT=/usr/share/doc/podroid
+
+if [ ! -d "$DOCROOT" ]; then
+    echo "podroid-docs: $DOCROOT not found" >&2
+    exit 1
+fi
+
+echo "Serving the Podroid docs at http://127.0.0.1:9980 (Ctrl-C to stop)"
+echo "From the phone: podroid-forward add 9980 9980 tcp, then open http://127.0.0.1:9980"
+
+exec busybox httpd -f -p 9980 -h "$DOCROOT"
