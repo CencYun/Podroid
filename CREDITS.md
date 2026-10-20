@@ -11,7 +11,7 @@ If something you maintain is included here and we missed you, please open an iss
 These projects make up the actual Linux system that runs inside Podroid.
 
 ### Linux kernel
-Podroid ships a custom build of the upstream Linux kernel (currently 7.1.5) configured specifically for OCI-compatible containers under QEMU TCG.
+Podroid ships a custom build of the upstream Linux kernel (currently 7.3) configured specifically for OCI-compatible containers under QEMU TCG.
 
 - Project: https://kernel.org
 - License: GNU General Public License v2.0
@@ -59,7 +59,7 @@ The in-app X11 viewer is backed by these components running inside the VM. Podro
 ## Emulation
 
 ### QEMU
-QEMU provides the machine emulation that makes everything else possible. Podroid currently builds against QEMU 11.0.4, cross-compiled for arm64 Android.
+QEMU provides the machine emulation that makes everything else possible. Podroid currently builds against QEMU 11.1.2, cross-compiled for arm64 Android.
 
 - Project: https://www.qemu.org
 - Repository: https://gitlab.com/qemu-project/qemu
